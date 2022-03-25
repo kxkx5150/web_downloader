@@ -14,33 +14,29 @@ error_chain! {
 #[tokio::main]
 async fn main() -> Result<()> {
     let url = "https://www.yahoo.co.jp/";
-    let res = reqwest::get(url.to_string())
-        .await?
-        .text()
-        .await?;
-    create_root(url, res.as_str());
+    create_node(url).await?;
     Ok(())
 }
 
-fn create_root(url: &str, s: &str) {
-
+async fn create_node(url: &str) -> Result<()> {
+    let s = reqwest::get(url.to_string()).await?.text().await?;
     let root = node::element::Link::new(url.to_string());
-    let rlink = node::element::Links::new(root);
+    let mut rootlinks = node::element::Links::new(root);
+    let mut tmplist: Vec<String> = vec![];
 
-
-    let mut as_str: Vec<String> = Vec::new();
-
-    Document::from(s)
+    Document::from(s.as_str())
         .find(Name("a"))
         .filter_map(|n| n.attr("href"))
         .for_each(|x| {
-            if x.starts_with("http") {
-                as_str.push(x.to_string());
-            }
+            tmplist.push(x.to_string());
         });
 
-    // as_str.sort();
-    // as_str.dedup();
-    // println!("{:?}", as_str);
-}
+    tmplist.sort();
+    tmplist.dedup();
+    tmplist.iter().for_each(|x| {
+        rootlinks.add_link(x.to_string());
+    });
 
+    rootlinks.print_links();
+    Ok(())
+}
