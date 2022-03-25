@@ -24,14 +24,16 @@ pub mod element {
 
     #[derive(Debug)]
     pub struct Links {
-        current: Link,
+        node: Link,
         links: Vec<Link>,
+        curent_idx: isize,
     }
     impl Links {
-        pub fn new(current: Link) -> Self {
+        pub fn new(node: Link) -> Self {
             Self {
-                current: current,
+                node,
                 links: vec![],
+                curent_idx: -1,
             }
         }
         pub fn add_link(&mut self, url: String) {
@@ -39,6 +41,13 @@ pub mod element {
                 let link = Link::new(url.to_string());
                 self.links.push(link);
             }
+        }
+        pub fn len(&self) -> usize {
+            self.links.len()
+        }
+        pub fn curent_url(&self) -> String {
+            // let &url = self.links
+            "".to_string()
         }
         pub fn print_links(&self) {
             println!("\n--- print links ---");
