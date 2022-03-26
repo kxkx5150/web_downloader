@@ -27,6 +27,21 @@ fn create_rootnode(
     let base_url = response.url().clone();
     let docstr = response.text()?;
     let doc = Document::from(docstr.as_str());
+
+    create_a(doc, base_url, &mut rootlinks, samehost);
+
+    loop {
+        if rootlinks.inc() && crntdepth < depth {
+            println!("OK depth:{} = {}", crntdepth, rootlinks.curent_url());
+            // let _ = create_rootnode(rootlinks.curent_url(), depth, crntdepth+1, samehost);
+        } else {
+            break;
+        }
+    }
+
+    Ok(())
+}
+fn create_a(doc: Document, base_url: Url, rootlinks: &mut node::element::Links, samehost: bool) {
     let mut hrefvec: Vec<String> = vec![];
 
     for href in doc.find(Name("a")).filter_map(|a| a.attr("href")) {
@@ -35,7 +50,7 @@ fn create_rootnode(
                 hrefvec.push(url.to_string());
             }
             Err(UrlParseError::RelativeUrlWithoutBase) => {
-                let url = base_url.join(href)?;
+                let url = base_url.join(href).unwrap();
                 hrefvec.push(url.to_string());
             }
             Err(e) => {
@@ -49,15 +64,4 @@ fn create_rootnode(
     hrefvec.iter().for_each(|x| {
         rootlinks.add_link(x.to_string(), samehost);
     });
-
-    loop {
-        if rootlinks.inc() && crntdepth < depth {
-            println!("OK depth:{} = {}", crntdepth, rootlinks.curent_url());
-            // let _ = create_rootnode(rootlinks.curent_url(), depth, crntdepth+1, samehost);
-        } else {
-            break;
-        }
-    }
-
-    Ok(())
 }

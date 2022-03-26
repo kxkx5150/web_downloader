@@ -1,6 +1,6 @@
 pub mod element {
-    use url::ParseError as UrlParseError;
-    use url::{Host, Position, Url};
+    // use url::ParseError as UrlParseError;
+    use url::Url;
 
     #[allow(dead_code)]
     #[derive(Debug)]
@@ -33,23 +33,25 @@ pub mod element {
             }
         }
         pub fn add_link(&mut self, url: String, samehost: bool) {
-            if self.check_link(&url) {
+            if self.check_link(&url, samehost) {
                 let link = Link::new(url.to_string());
-                let prnthost = &self.node.urlstruct.host_str().unwrap().to_string();
-                let chldhost = &link.urlstruct.host_str().unwrap().to_string();
-
-                if samehost {
-                    if chldhost.starts_with(prnthost) {
-                        self.links.push(link);
-                    }
-                } else {
-                    self.links.push(link);
-                }
+                self.links.push(link);
             }
         }
-        fn check_link(&self, url: &String) -> bool {
+        fn check_link(&self, url: &String, samehost: bool) -> bool {
             if url.starts_with("http:") || url.starts_with("https:") || !url.contains(":") {
-                true
+                let prnthost = &self.node.urlstruct.host_str().unwrap().to_string();
+                let urlhost = Url::parse(&url).unwrap().host_str().unwrap().to_string();
+
+                if samehost {
+                    if urlhost.starts_with(prnthost) {
+                        true
+                    } else {
+                        false
+                    }
+                } else {
+                    true
+                }
             } else {
                 false
             }
