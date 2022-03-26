@@ -18,14 +18,12 @@ async fn main() -> Result<()> {
     Ok(())
 }
 async fn stat(url: &str) -> Result<()> {
-    create_node(url, 2, 0, 0).await?;
+    create_rootnode(url, 2, 0).await?;
     Ok(())
 }
-async fn create_node(url: &str, depth: usize, mut crntdepth: usize, mut idx: usize) -> Result<()> {
-    if depth == crntdepth {
-        println!("Finish");
-        return Ok(());
-    }
+#[allow(unused_variables)]
+#[allow(unused_mut)]
+async fn create_rootnode(url: &str, depth: usize, mut crntdepth: usize) -> Result<()> {
     let s = reqwest::get(url.to_string()).await?.text().await?;
     let root = node::element::Link::new(url.to_string());
     let mut rootlinks = node::element::Links::new(root);
@@ -44,12 +42,14 @@ async fn create_node(url: &str, depth: usize, mut crntdepth: usize, mut idx: usi
         rootlinks.add_link(x.to_string());
     });
 
-    if rootlinks.len() == idx + 1 {
-        println!("Finish");
-    } else {
-        idx += 1;
-        // let _ = create_node(url, depth, crntdepth, idx);
-    }
-
+    println!("\n--- start ----");
+    let _ = iter_links(rootlinks);
+    println!("--- Finish ---\n");
     Ok(())
+}
+fn iter_links(mut rootlinks: node::element::Links){
+    if rootlinks.inc() {
+        println!("{}",rootlinks.curent_url());
+        let _ = iter_links(rootlinks);
+    }
 }

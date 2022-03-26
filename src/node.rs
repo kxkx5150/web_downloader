@@ -1,7 +1,6 @@
-#[allow(dead_code)]
 
 pub mod element {
-
+    #[allow(dead_code)]
     #[derive(Debug)]
     pub struct Link {
         url: String,
@@ -45,9 +44,31 @@ pub mod element {
         pub fn len(&self) -> usize {
             self.links.len()
         }
+        pub fn set_idx(&mut self, idx: isize) -> bool{
+            if idx < 0 {
+                self.curent_idx = -1;
+                true
+            } else if idx < self.len() as isize {
+                self.curent_idx = idx;
+                true
+            }else {    
+                false
+            }
+        }
+        pub fn inc(&mut self) -> bool{
+            if self.set_idx(self.curent_idx + 1){
+                true
+            }else{
+                false
+            }
+        }
         pub fn curent_url(&self) -> String {
-            // let &url = self.links
-            "".to_string()
+            if self.curent_idx == -1 {
+                self.node.url.clone()
+            } else {
+                let link = &self.links[self.curent_idx as usize];
+                link.url.clone()
+            }
         }
         pub fn print_links(&self) {
             println!("\n--- print links ---");
