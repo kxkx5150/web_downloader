@@ -1,55 +1,43 @@
-use error_chain::error_chain;
 use select::document::Document;
 use select::predicate::Name;
+
 mod node;
 pub use crate::node::element;
 
-error_chain! {
-      foreign_links {
-          ReqError(reqwest::Error);
-          IoError(std::io::Error);
-      }
+fn main() {
+    let url = "http://www.brokenthorn.com/Resources/OSDevIndex.html";
+    stat(url);
 }
-
-#[tokio::main]
-async fn main() -> Result<()> {
-    let url = "https://www.yahoo.co.jp/";
-    stat(url).await?;
-    Ok(())
+fn stat(url: &str) {
+    let _ = create_rootnode(url.to_string(), 1, 0);
+    println!("--- Finish ---\n");
 }
-async fn stat(url: &str) -> Result<()> {
-    create_rootnode(url, 2, 0).await?;
-    Ok(())
-}
-#[allow(unused_variables)]
-#[allow(unused_mut)]
-async fn create_rootnode(url: &str, depth: usize, mut crntdepth: usize) -> Result<()> {
-    let s = reqwest::get(url.to_string()).await?.text().await?;
-    let root = node::element::Link::new(url.to_string());
+fn create_rootnode(url: String, depth: usize, crntdepth: usize) -> eyre::Result<()> {
+    let s = reqwest::blocking::get(&url)?.text()?;
+    let root = node::element::Link::new(url.clone());
     let mut rootlinks = node::element::Links::new(root);
-    let mut tmplist: Vec<String> = vec![];
+    let mut hrefvec: Vec<String> = vec![];
+    let doc = Document::from(s.as_str());
 
-    Document::from(s.as_str())
-        .find(Name("a"))
+    doc.find(Name("a"))
         .filter_map(|n| n.attr("href"))
         .for_each(|x| {
-            tmplist.push(x.to_string());
+            hrefvec.push(x.to_string());
         });
-
-    tmplist.sort();
-    tmplist.dedup();
-    tmplist.iter().for_each(|x| {
+    hrefvec.sort();
+    hrefvec.dedup();
+    hrefvec.iter().for_each(|x| {
         rootlinks.add_link(x.to_string());
     });
 
-    println!("\n--- start ----");
-    let _ = iter_links(rootlinks);
-    println!("--- Finish ---\n");
-    Ok(())
-}
-fn iter_links(mut rootlinks: node::element::Links){
-    if rootlinks.inc() {
-        println!("{}",rootlinks.curent_url());
-        let _ = iter_links(rootlinks);
+    loop {
+        if rootlinks.inc() && crntdepth < depth {
+            println!("OK depth:{} = {}", crntdepth, rootlinks.curent_url());
+            let _ = create_rootnode(rootlinks.curent_url(), depth, crntdepth+1);
+        } else {
+            break;
+        }
     }
+
+    Ok(())
 }

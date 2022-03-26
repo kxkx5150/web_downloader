@@ -1,4 +1,3 @@
-
 pub mod element {
     #[allow(dead_code)]
     #[derive(Debug)]
@@ -36,7 +35,10 @@ pub mod element {
             }
         }
         pub fn add_link(&mut self, url: String) {
-            if url.starts_with("http") {
+            if url.starts_with("http:")
+                || url.starts_with("https:")
+                || !url.contains(":")
+            {
                 let link = Link::new(url.to_string());
                 self.links.push(link);
             }
@@ -44,21 +46,21 @@ pub mod element {
         pub fn len(&self) -> usize {
             self.links.len()
         }
-        pub fn set_idx(&mut self, idx: isize) -> bool{
+        pub fn set_idx(&mut self, idx: isize) -> bool {
             if idx < 0 {
                 self.curent_idx = -1;
                 true
             } else if idx < self.len() as isize {
                 self.curent_idx = idx;
                 true
-            }else {    
+            } else {
                 false
             }
         }
-        pub fn inc(&mut self) -> bool{
-            if self.set_idx(self.curent_idx + 1){
+        pub fn inc(&mut self) -> bool {
+            if self.set_idx(self.curent_idx + 1) {
                 true
-            }else{
+            } else {
                 false
             }
         }
