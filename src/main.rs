@@ -17,7 +17,6 @@ mod options;
 pub use crate::node::element;
 pub use crate::options::dl_options;
 
-
 #[allow(unused_variables)]
 fn walk(base_url: &Url, indent: usize, node: &Handle, linkurls: &mut Vec<String>) {
     match node.data {
@@ -52,7 +51,12 @@ fn walk(base_url: &Url, indent: usize, node: &Handle, linkurls: &mut Vec<String>
     }
 }
 #[allow(unused_variables)]
-fn check_tag(base_url: &Url, nodestr: String, attrs: &RefCell<Vec<Attribute>>, linkurls: &mut Vec<String>) {
+fn check_tag(
+    base_url: &Url,
+    nodestr: String,
+    attrs: &RefCell<Vec<Attribute>>,
+    linkurls: &mut Vec<String>,
+) {
     if nodestr == "a" {
         for attr in attrs.borrow().iter() {
             if attr.name.local.to_string() == "href" {
@@ -75,24 +79,41 @@ fn check_tag(base_url: &Url, nodestr: String, attrs: &RefCell<Vec<Attribute>>, l
         }
     }
 }
-
 #[allow(unused_variables)]
-fn main() {
-    let url = "http://www.brokenthorn.com/Resources/OSDevIndex.html";
+fn create_rootnode(
+    url: String,
+    crntdepth: usize,
+    opts: &options::dl_options::Options,
+) -> eyre::Result<()> {
     let root = node::element::Link::new(url.to_string());
     let mut rootlinks = node::element::Links::new(root);
-    let opts = options::dl_options::Options::new(
-        2, 
-        true
-    );
 
     let response = reqwest::blocking::get(url).unwrap();
     let base_url = response.url().clone();
     let docstr = response.text().unwrap();
     let parser = parse_document(RcDom::default(), ParseOpts::default());
     let dom = parser.one(docstr.as_str());
-    let mut linkurls: Vec<String> =  vec![];
 
+    check_link(&dom, base_url, &mut rootlinks, &opts);
+
+    loop {
+        if rootlinks.inc() && crntdepth < opts.depth {
+            println!("OK depth:{} = {}", crntdepth, rootlinks.curent_url());
+            // let _ = create_rootnode(rootlinks.curent_url(), depth, crntdepth+1, samehost);
+        } else {
+            break;
+        }
+    }
+
+    Ok(())
+}
+fn check_link(
+    dom: &RcDom,
+    base_url: Url,
+    rootlinks: &mut node::element::Links,
+    opts: &options::dl_options::Options,
+) {
+    let mut linkurls: Vec<String> = vec![];
     walk(&base_url, 0, &dom.document, &mut linkurls);
 
     linkurls.sort();
@@ -100,7 +121,12 @@ fn main() {
     linkurls.iter().for_each(|x| {
         rootlinks.add_link(x.to_string(), opts.samehost);
     });
-
-    rootlinks.print_links();
-
+}
+#[allow(unused_variables)]
+fn main() {
+    let url = "http://www.brokenthorn.com/Resources/OSDevIndex.html";
+    let opts = options::dl_options::Options::new(2, true);
+    println!("\n--- start ---");
+    let _ = create_rootnode(url.to_string(), 0, &opts);
+    println!("---  end  ---");
 }

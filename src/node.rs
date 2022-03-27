@@ -39,8 +39,8 @@ pub mod element {
             }
         }
         fn check_link(&self, url: &String, samehost: bool) -> bool {
-            if self.check_duplicate(url){
-                return  false;
+            if self.check_duplicate(url) {
+                return false;
             }
 
             if url.starts_with("http:") || url.starts_with("https:") || !url.contains(":") {
@@ -60,10 +60,8 @@ pub mod element {
                 false
             }
         }
-        fn check_duplicate(&self, url: &String) -> bool{
-            if url == "" {
-
-            }
+        fn check_duplicate(&self, url: &String) -> bool {
+            if url == "" {}
             false
         }
         pub fn len(&self) -> usize {
