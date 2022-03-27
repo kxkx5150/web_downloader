@@ -58,24 +58,48 @@ fn check_tag(
     linkurls: &mut Vec<String>,
 ) {
     if nodestr == "a" {
-        for attr in attrs.borrow().iter() {
-            if attr.name.local.to_string() == "href" {
-                let path = &attr.value.to_string();
-                match Url::parse(path) {
-                    Ok(url) => {
-                        linkurls.push(url.to_string());
-                        // println!("{}", url);
-                    }
-                    Err(UrlParseError::RelativeUrlWithoutBase) => {
-                        let url = base_url.join(path).unwrap();
-                        linkurls.push(url.to_string());
-                    }
-                    Err(e) => {
-                        println!("Error: {}", e);
-                    }
+        check_a(base_url, attrs, linkurls);
+    }else if nodestr == "img" {
+        check_img(base_url, attrs, linkurls);
+    }
+}
+fn check_img(base_url: &Url, attrs: &RefCell<Vec<Attribute>>, linkurls: &mut Vec<String>){
+    for attr in attrs.borrow().iter() {
+        if attr.name.local.to_string() == "src" {
+            let path = &attr.value.to_string();
+            match Url::parse(path) {
+                Ok(url) => {
+                    println!("{}", url);
                 }
-                break;
+                Err(UrlParseError::RelativeUrlWithoutBase) => {
+                    let url = base_url.join(path).unwrap();
+                    println!("{}", url);
+                }
+                Err(e) => {
+                    println!("Error: {}", e);
+                }
             }
+            break;
+        }
+    }
+}
+fn check_a(base_url: &Url, attrs: &RefCell<Vec<Attribute>>, linkurls: &mut Vec<String>) {
+    for attr in attrs.borrow().iter() {
+        if attr.name.local.to_string() == "href" {
+            let path = &attr.value.to_string();
+            match Url::parse(path) {
+                Ok(url) => {
+                    linkurls.push(url.to_string());
+                }
+                Err(UrlParseError::RelativeUrlWithoutBase) => {
+                    let url = base_url.join(path).unwrap();
+                    linkurls.push(url.to_string());
+                }
+                Err(e) => {
+                    println!("Error: {}", e);
+                }
+            }
+            break;
         }
     }
 }
@@ -98,7 +122,7 @@ fn create_rootnode(
 
     loop {
         if rootlinks.inc() && crntdepth < opts.depth {
-            println!("OK depth:{} = {}", crntdepth, rootlinks.curent_url());
+            // println!("OK depth:{} = {}", crntdepth, rootlinks.curent_url());
             // let _ = create_rootnode(rootlinks.curent_url(), depth, crntdepth+1, samehost);
         } else {
             break;
@@ -121,10 +145,14 @@ fn check_link(
     linkurls.iter().for_each(|x| {
         rootlinks.add_link(x.to_string(), opts.samehost);
     });
+
+
+
+    
 }
 #[allow(unused_variables)]
 fn main() {
-    let url = "http://www.brokenthorn.com/Resources/OSDevIndex.html";
+    let url = "https://qiita.com/kxkx5150";
     let opts = options::dl_options::Options::new(2, true);
     println!("\n--- start ---");
     let _ = create_rootnode(url.to_string(), 0, &opts);
