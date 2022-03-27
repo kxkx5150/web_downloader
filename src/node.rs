@@ -2,6 +2,23 @@ pub mod element {
     // use url::ParseError as UrlParseError;
     use url::Url;
 
+    pub struct Urllist {
+        pub a_links: Vec<String>,
+        pub img_links: Vec<String>,
+        pub css_links: Vec<String>,
+        pub js_links: Vec<String>,
+    }
+    impl Urllist {
+        pub fn new() -> Self {
+            Self {
+                a_links: vec![],
+                img_links: vec![],
+                css_links: vec![],
+                js_links: vec![],
+            }
+        }
+    }
+
     #[allow(dead_code)]
     #[derive(Debug)]
     pub struct Link {
