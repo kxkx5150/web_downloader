@@ -8,10 +8,11 @@ use html5ever::tendril::{StrTendril, TendrilSink};
 use html5ever::{local_name, namespace_url, ns};
 use html5ever::{parse_document, parse_fragment};
 use html5ever::{Attribute, LocalName, QualName};
-use std::rc::Rc;
 use std::cell::RefCell;
-use url::Url;
+use std::path::Path;
+use std::rc::Rc;
 use url::ParseError as UrlParseError;
+use url::Url;
 mod node;
 mod options;
 pub use crate::node::element;
@@ -50,7 +51,6 @@ fn walk(base_url: &Url, indent: usize, node: &Handle, urllinks: &mut node::eleme
         walk(base_url, indent + 4, child, urllinks);
     }
 }
-#[allow(unused_variables)]
 fn check_tag(
     base_url: &Url,
     nodestr: String,
@@ -94,34 +94,6 @@ fn create_full_url(base_url: &Url, attr: &Attribute, linkurls: &mut Vec<String>)
         }
     }
 }
-#[allow(unused_variables)]
-fn create_rootnode(
-    url: String,
-    crntdepth: usize,
-    opts: &options::dl_options::Options,
-) -> eyre::Result<()> {
-    let root = node::element::Link::new(url.to_string());
-    let mut rootlinks = node::element::Links::new(root);
-
-    let response = reqwest::blocking::get(url).unwrap();
-    let base_url = response.url().clone();
-    let docstr = response.text().unwrap();
-    let parser = parse_document(RcDom::default(), ParseOpts::default());
-    let dom = parser.one(docstr.as_str());
-
-    check_link(&dom, base_url, &mut rootlinks, &opts);
-
-    loop {
-        if rootlinks.inc() && crntdepth < opts.depth {
-            println!("OK depth:{} = {}", crntdepth, rootlinks.curent_url());
-            // let _ = create_rootnode(rootlinks.curent_url(), depth, crntdepth+1, samehost);
-        } else {
-            break;
-        }
-    }
-
-    Ok(())
-}
 fn check_link(
     dom: &RcDom,
     base_url: Url,
@@ -142,13 +114,50 @@ fn check_link(
     urllinks.img_links.dedup();
     urllinks.img_links.iter().for_each(|x| {
         // println!("{}", &x);
+        download_file(&"".to_string(), &x);
     });
 }
-#[allow(unused_variables)]
+fn download_file(base_path: &String, url: &String) {
+    let file = url;
+    let path = Path::new(file);
+    let filename = path.file_name().unwrap().to_str().unwrap();
+    println!("{}", filename);
+
+    // let mut file = std::fs::File::create(filename).unwrap();
+    // reqwest::blocking::get(url)
+    //     .unwrap()
+    //     .copy_to(&mut file)
+    //     .unwrap();
+}
+fn create_rootnode(
+    url: String,
+    crntdepth: usize,
+    opts: &options::dl_options::Options,
+) -> eyre::Result<()> {
+    let root = node::element::Link::new(url.to_string());
+    let mut rootlinks = node::element::Links::new(root);
+
+    let response = reqwest::blocking::get(url).unwrap();
+    let base_url = response.url().clone();
+    let docstr = response.text().unwrap();
+    let parser = parse_document(RcDom::default(), ParseOpts::default());
+    let dom = parser.one(docstr.as_str());
+
+    check_link(&dom, base_url, &mut rootlinks, &opts);
+
+    loop {
+        if rootlinks.inc() && crntdepth < opts.depth {
+            // println!("OK depth:{} = {}", crntdepth, rootlinks.curent_url());
+            // let _ = create_rootnode(rootlinks.curent_url(), depth, crntdepth+1, samehost);
+        } else {
+            break;
+        }
+    }
+
+    Ok(())
+}
 fn main() {
-    let url = "https://qiita.com/kxkx5150";
+    let url = "https://www.formula1.com";
     let opts = options::dl_options::Options::new(2, true);
-    println!("\n--- start ---");
     let _ = create_rootnode(url.to_string(), 0, &opts);
-    println!("---  end  ---");
 }
