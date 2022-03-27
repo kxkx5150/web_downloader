@@ -61,6 +61,10 @@ fn check_tag(
         check_a(base_url, attrs, &mut urllinks.a_links);
     } else if nodestr == "img" {
         check_img(base_url, attrs, &mut urllinks.img_links);
+    } else if nodestr == "link" {
+        check_css(base_url, attrs, &mut urllinks.css_links);
+    } else if nodestr == "script" {
+        check_script(base_url, attrs, &mut urllinks.js_links);
     }
 }
 fn check_img(base_url: &Url, attrs: &RefCell<Vec<Attribute>>, linkurls: &mut Vec<String>) {
@@ -74,6 +78,24 @@ fn check_img(base_url: &Url, attrs: &RefCell<Vec<Attribute>>, linkurls: &mut Vec
 fn check_a(base_url: &Url, attrs: &RefCell<Vec<Attribute>>, linkurls: &mut Vec<String>) {
     for attr in attrs.borrow().iter() {
         if attr.name.local.to_string() == "href" {
+            create_full_url(base_url, attr, linkurls);
+            break;
+        }
+    }
+}
+fn check_css(base_url: &Url, attrs: &RefCell<Vec<Attribute>>, linkurls: &mut Vec<String>) {
+    for attr in attrs.borrow().iter() {
+        if attr.name.local.to_string() == "rel" {
+            if attr.value.to_string() == "stylesheet" {
+                create_full_url(base_url, attr, linkurls);
+                break;
+            }
+        }
+    }
+}
+fn check_script(base_url: &Url, attrs: &RefCell<Vec<Attribute>>, linkurls: &mut Vec<String>) {
+    for attr in attrs.borrow().iter() {
+        if attr.name.local.to_string() == "src" {
             create_full_url(base_url, attr, linkurls);
             break;
         }
@@ -114,9 +136,10 @@ fn check_link(
     urllinks.img_links.dedup();
     urllinks.img_links.iter().for_each(|x| {
         // println!("{}", &x);
-        download_file(&"".to_string(), &x);
+        // download_file(&"".to_string(), &x);
     });
 }
+#[allow(unused_variables)]
 fn download_file(base_path: &String, url: &String) {
     let file = url;
     let path = Path::new(file);
