@@ -39,6 +39,10 @@ pub mod element {
             }
         }
         fn check_link(&self, url: &String, samehost: bool) -> bool {
+            if self.check_duplicate(url){
+                return  false;
+            }
+
             if url.starts_with("http:") || url.starts_with("https:") || !url.contains(":") {
                 let prnthost = &self.node.urlstruct.host_str().unwrap().to_string();
                 let urlhost = Url::parse(&url).unwrap().host_str().unwrap().to_string();
@@ -55,6 +59,12 @@ pub mod element {
             } else {
                 false
             }
+        }
+        fn check_duplicate(&self, url: &String) -> bool{
+            if url == "" {
+
+            }
+            false
         }
         pub fn len(&self) -> usize {
             self.links.len()

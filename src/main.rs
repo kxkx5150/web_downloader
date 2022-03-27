@@ -12,10 +12,14 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use url::ParseError as UrlParseError;
 use url::Url;
+mod node;
+mod options;
+pub use crate::node::element;
+pub use crate::options::dl_options;
 
 
 #[allow(unused_variables)]
-fn walk(base_url: &Url, indent: usize, node: &Handle) {
+fn walk(base_url: &Url, indent: usize, node: &Handle, linkurls: &mut Vec<String>) {
     match node.data {
         NodeData::Document => {
             // println!("#Document")
@@ -38,33 +42,29 @@ fn walk(base_url: &Url, indent: usize, node: &Handle) {
             ref attrs,
             ..
         } => {
-            check_tag(base_url, name.local.to_string(), &attrs);
-            // print!("<{}", name.local);
-            // for attr in attrs.borrow().iter() {
-            //     print!(" {}=\"{}\"", attr.name.local, attr.value);
-            // }
-            // println!(">");
+            check_tag(base_url, name.local.to_string(), &attrs, linkurls);
         }
         NodeData::ProcessingInstruction { .. } => unreachable!(),
     }
 
     for child in node.children.borrow().iter() {
-        walk(base_url, indent + 4, child);
+        walk(base_url, indent + 4, child, linkurls);
     }
 }
 #[allow(unused_variables)]
-fn check_tag(base_url: &Url, nodestr: String, attrs: &RefCell<Vec<Attribute>>) {
+fn check_tag(base_url: &Url, nodestr: String, attrs: &RefCell<Vec<Attribute>>, linkurls: &mut Vec<String>) {
     if nodestr == "a" {
         for attr in attrs.borrow().iter() {
             if attr.name.local.to_string() == "href" {
                 let path = &attr.value.to_string();
                 match Url::parse(path) {
                     Ok(url) => {
-                        println!("{}", url);
+                        linkurls.push(url.to_string());
+                        // println!("{}", url);
                     }
                     Err(UrlParseError::RelativeUrlWithoutBase) => {
                         let url = base_url.join(path).unwrap();
-                        println!("{}", url);
+                        linkurls.push(url.to_string());
                     }
                     Err(e) => {
                         println!("Error: {}", e);
@@ -79,13 +79,28 @@ fn check_tag(base_url: &Url, nodestr: String, attrs: &RefCell<Vec<Attribute>>) {
 #[allow(unused_variables)]
 fn main() {
     let url = "http://www.brokenthorn.com/Resources/OSDevIndex.html";
+    let root = node::element::Link::new(url.to_string());
+    let mut rootlinks = node::element::Links::new(root);
+    let opts = options::dl_options::Options::new(
+        2, 
+        true
+    );
+
     let response = reqwest::blocking::get(url).unwrap();
     let base_url = response.url().clone();
     let docstr = response.text().unwrap();
     let parser = parse_document(RcDom::default(), ParseOpts::default());
     let dom = parser.one(docstr.as_str());
+    let mut linkurls: Vec<String> =  vec![];
 
-    println!("\n--- start ---");
-    walk(&base_url, 0, &dom.document);
-    println!("---  end  ---");
+    walk(&base_url, 0, &dom.document, &mut linkurls);
+
+    linkurls.sort();
+    linkurls.dedup();
+    linkurls.iter().for_each(|x| {
+        rootlinks.add_link(x.to_string(), opts.samehost);
+    });
+
+    rootlinks.print_links();
+
 }
