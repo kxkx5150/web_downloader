@@ -3,22 +3,26 @@ use select::predicate::Name;
 use url::ParseError as UrlParseError;
 use url::Url;
 mod node;
+mod options;
 pub use crate::node::element;
+pub use crate::options::dl_options;
 
 fn main() {
     let url = "http://www.brokenthorn.com/Resources/OSDevIndex.html";
-    let samehost = true;
-    stat(url, samehost);
+    let opts = options::dl_options::Options::new(
+        2, 
+        true
+    );
+    stat(url, opts);
 }
-fn stat(url: &str, samehost: bool) {
-    let _ = create_rootnode(url.to_string(), 1, 0, samehost);
+fn stat(url: &str, opts: options::dl_options::Options) {
+    let _ = create_rootnode(url.to_string(), 0, &opts);
     println!("--- Finish ---\n");
 }
 fn create_rootnode(
     url: String,
-    depth: usize,
     crntdepth: usize,
-    samehost: bool,
+    opts: &options::dl_options::Options,
 ) -> eyre::Result<()> {
     let root = node::element::Link::new(url.clone());
     let mut rootlinks = node::element::Links::new(root);
@@ -28,10 +32,10 @@ fn create_rootnode(
     let docstr = response.text()?;
     let doc = Document::from(docstr.as_str());
 
-    create_a(doc, base_url, &mut rootlinks, samehost);
+    check_link(doc, base_url, &mut rootlinks, &opts);
 
     loop {
-        if rootlinks.inc() && crntdepth < depth {
+        if rootlinks.inc() && crntdepth < opts.depth {
             println!("OK depth:{} = {}", crntdepth, rootlinks.curent_url());
             // let _ = create_rootnode(rootlinks.curent_url(), depth, crntdepth+1, samehost);
         } else {
@@ -41,7 +45,12 @@ fn create_rootnode(
 
     Ok(())
 }
-fn create_a(doc: Document, base_url: Url, rootlinks: &mut node::element::Links, samehost: bool) {
+fn check_link(
+    doc: Document,
+    base_url: Url,
+    rootlinks: &mut node::element::Links,
+    opts: &options::dl_options::Options,
+) {
     let mut hrefvec: Vec<String> = vec![];
 
     for href in doc.find(Name("a")).filter_map(|a| a.attr("href")) {
@@ -62,6 +71,9 @@ fn create_a(doc: Document, base_url: Url, rootlinks: &mut node::element::Links, 
     hrefvec.sort();
     hrefvec.dedup();
     hrefvec.iter().for_each(|x| {
-        rootlinks.add_link(x.to_string(), samehost);
+        rootlinks.add_link(x.to_string(), opts.samehost);
     });
 }
+// fn download_page(){
+
+// }
