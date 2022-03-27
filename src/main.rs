@@ -10,9 +10,12 @@ use html5ever::{parse_document, parse_fragment};
 use html5ever::{Attribute, LocalName, QualName};
 use std::cell::RefCell;
 use std::rc::Rc;
+use url::ParseError as UrlParseError;
+use url::Url;
+
 
 #[allow(unused_variables)]
-fn walk(base_url: &String, indent: usize, node: &Handle) {
+fn walk(base_url: &Url, indent: usize, node: &Handle) {
     match node.data {
         NodeData::Document => {
             // println!("#Document")
@@ -50,11 +53,25 @@ fn walk(base_url: &String, indent: usize, node: &Handle) {
     }
 }
 #[allow(unused_variables)]
-fn check_tag(base_url: &String, nodestr: String, attrs: &RefCell<Vec<Attribute>>) {
+fn check_tag(base_url: &Url, nodestr: String, attrs: &RefCell<Vec<Attribute>>) {
     if nodestr == "a" {
-        print!("{} ", nodestr);
         for attr in attrs.borrow().iter() {
-            println!("{}=\"{}\"", attr.name.local, attr.value);
+            if attr.name.local.to_string() == "href" {
+                let path = &attr.value.to_string();
+                match Url::parse(path) {
+                    Ok(url) => {
+                        println!("{}", url);
+                    }
+                    Err(UrlParseError::RelativeUrlWithoutBase) => {
+                        let url = base_url.join(path).unwrap();
+                        println!("{}", url);
+                    }
+                    Err(e) => {
+                        println!("Error: {}", e);
+                    }
+                }
+                break;
+            }
         }
     }
 }
@@ -69,6 +86,6 @@ fn main() {
     let dom = parser.one(docstr.as_str());
 
     println!("\n--- start ---");
-    walk(&base_url.to_string(), 0, &dom.document);
+    walk(&base_url, 0, &dom.document);
     println!("---  end  ---");
 }
