@@ -1,18 +1,15 @@
 #![cfg_attr(debug_assertions, allow(dead_code, unused_imports))]
-use core::iter::repeat;
 use html5ever::driver::ParseOpts;
-use html5ever::rcdom::{Handle, Node, NodeData, RcDom};
+use html5ever::rcdom::{Handle, NodeData, RcDom};
 use html5ever::serialize;
 use html5ever::serialize::SerializeOpts;
 use html5ever::tendril::{StrTendril, TendrilSink};
 use html5ever::{local_name, namespace_url, ns};
-use html5ever::{parse_document, parse_fragment};
-use html5ever::{Attribute, LocalName, QualName};
+use html5ever::{parse_document, Attribute, LocalName, QualName};
 use std::cell::RefCell;
+use std::fs;
 use std::path::Path;
-use std::rc::Rc;
-use url::ParseError as UrlParseError;
-use url::Url;
+use url::{ParseError as UrlParseError, Position, Url};
 mod node;
 mod options;
 pub use crate::node::element;
@@ -67,28 +64,57 @@ fn check_tag(
         check_script(base_url, attrs, &mut urllinks.js_links);
     }
 }
-fn check_img(base_url: &Url, attrs: &RefCell<Vec<Attribute>>, linkurls: &mut Vec<String>) {
-    for attr in attrs.borrow().iter() {
-        if attr.name.local.to_string() == "src" {
-            create_full_url(base_url, attr, linkurls);
-            break;
-        }
+fn create_attribute(name: &str, value: &str) -> Attribute {
+    Attribute {
+        name: QualName::new(None, ns!(), LocalName::from(name)),
+        value: StrTendril::from(value),
     }
 }
 fn check_a(base_url: &Url, attrs: &RefCell<Vec<Attribute>>, linkurls: &mut Vec<String>) {
     for attr in attrs.borrow().iter() {
         if attr.name.local.to_string() == "href" {
-            create_full_url(base_url, attr, linkurls);
+            create_full_url(base_url, &attr.value.to_string(), linkurls);
             break;
         }
     }
 }
-fn check_css(base_url: &Url, attrs: &RefCell<Vec<Attribute>>, linkurls: &mut Vec<String>) {
+fn check_img(base_url: &Url, attrs: &RefCell<Vec<Attribute>>, linkurls: &mut Vec<String>) {
+    let mut fpath: String = "".to_string();
     for attr in attrs.borrow().iter() {
+        if attr.name.local.to_string() == "src" {
+            fpath = create_full_url(base_url, &attr.value.to_string(), linkurls).to_string();
+            break;
+        }
+    }
+    if fpath != "" {
+        // attrs.borrow_mut().push(create_attribute(
+        //     "src",
+        //     "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        // ));
+        // println!("edit");
+    }
+}
+fn check_css(base_url: &Url, attrs: &RefCell<Vec<Attribute>>, linkurls: &mut Vec<String>) {
+    let mut dlpath = "".to_string();
+    let mut cssflg = false;
+    for attr in attrs.borrow().iter() {
+        if attr.name.local.to_string() == "href" {
+            if cssflg {
+                create_full_url(base_url, &attr.value.to_string(), linkurls);
+                break;
+            } else {
+                dlpath = attr.value.to_string();
+            }
+        }
+
         if attr.name.local.to_string() == "rel" {
             if attr.value.to_string() == "stylesheet" {
-                create_full_url(base_url, attr, linkurls);
-                break;
+                if dlpath != "" {
+                    create_full_url(base_url, &dlpath, linkurls);
+                    break;
+                } else {
+                    cssflg = true;
+                }
             }
         }
     }
@@ -96,23 +122,30 @@ fn check_css(base_url: &Url, attrs: &RefCell<Vec<Attribute>>, linkurls: &mut Vec
 fn check_script(base_url: &Url, attrs: &RefCell<Vec<Attribute>>, linkurls: &mut Vec<String>) {
     for attr in attrs.borrow().iter() {
         if attr.name.local.to_string() == "src" {
-            create_full_url(base_url, attr, linkurls);
+            create_full_url(base_url, &attr.value.to_string(), linkurls);
             break;
         }
     }
 }
-fn create_full_url(base_url: &Url, attr: &Attribute, linkurls: &mut Vec<String>) {
-    let path = &attr.value.to_string();
+
+fn create_full_url(base_url: &Url, path: &String, linkurls: &mut Vec<String>) -> String {
+    if path == "" {
+        return "".to_string();
+    }
     match Url::parse(path) {
         Ok(url) => {
-            linkurls.push(url.to_string());
+            let urlstr = url.to_string();
+            linkurls.push(urlstr.clone());
+            urlstr.to_string()
         }
         Err(UrlParseError::RelativeUrlWithoutBase) => {
-            let url = base_url.join(path).unwrap();
-            linkurls.push(url.to_string());
+            let urlstr = base_url.join(path).unwrap().to_string();
+            linkurls.push(urlstr.clone());
+            urlstr.to_string()
         }
         Err(e) => {
             println!("Error: {}", e);
+            "".to_string()
         }
     }
 }
@@ -122,35 +155,62 @@ fn check_link(
     rootlinks: &mut node::element::Links,
     opts: &options::dl_options::Options,
 ) {
+    println!("\n--- start ---");
     let mut urllinks = node::element::Urllist::new();
     walk(&base_url, 0, &dom.document, &mut urllinks);
+
+    // let mut bytes = vec![];
+    // serialize(&mut bytes, &dom.document, SerializeOpts::default()).unwrap();
+    // println!("{}", String::from_utf8(bytes).unwrap());
 
     urllinks.a_links.sort();
     urllinks.a_links.dedup();
     urllinks.a_links.iter().for_each(|x| {
-        // println!("{}", &x);
         rootlinks.add_link(x.to_string(), opts.samehost);
     });
-
-    urllinks.img_links.sort();
-    urllinks.img_links.dedup();
-    urllinks.img_links.iter().for_each(|x| {
-        // println!("{}", &x);
-        // download_file(&"".to_string(), &x);
+    {
+        iter_download_list(&mut urllinks.img_links, &opts);
+    }
+    {
+        iter_download_list(&mut urllinks.css_links, &opts);
+    }
+    {
+        iter_download_list(&mut urllinks.js_links, &opts);
+    }
+}
+fn iter_download_list(linklist: &mut Vec<String>, opts: &options::dl_options::Options) {
+    linklist.sort();
+    linklist.dedup();
+    linklist.iter().for_each(|x| {
+        download_file(&x, opts);
     });
 }
-#[allow(unused_variables)]
-fn download_file(base_path: &String, url: &String) {
-    let file = url;
-    let path = Path::new(file);
-    let filename = path.file_name().unwrap().to_str().unwrap();
-    println!("{}", filename);
+fn download_file(url: &String, opts: &options::dl_options::Options) {
+    let (fullpath, dirpath) = create_download_path(url, opts);
+    println!("\n{}", &dirpath);
+    println!("{}", &fullpath);
 
-    // let mut file = std::fs::File::create(filename).unwrap();
-    // reqwest::blocking::get(url)
-    //     .unwrap()
-    //     .copy_to(&mut file)
-    //     .unwrap();
+    let _ = fs::create_dir_all(dirpath);
+    let mut file = std::fs::File::create(fullpath).unwrap();
+    reqwest::blocking::get(url)
+        .unwrap()
+        .copy_to(&mut file)
+        .unwrap();
+}
+fn create_download_path(url: &String, opts: &options::dl_options::Options) -> (String, String) {
+    let urlobj = Url::parse(&url).unwrap();
+    let host = urlobj.host_str().unwrap();
+    let urlpath = &urlobj[Position::BeforePath..];
+    let filepath = host.to_string() + urlpath;
+    let path = Path::new(&filepath);
+
+    let basepath = &opts.dlfolder;
+    let parent = path.parent().unwrap().to_str().unwrap();
+    let filename = &urlobj.path();
+    let fullpath = basepath.to_string() + host + filename;
+    let dirpath = basepath.to_string() + parent + "/";
+
+    return (fullpath.to_string(), dirpath.to_string());
 }
 fn create_rootnode(
     url: String,
@@ -168,9 +228,10 @@ fn create_rootnode(
 
     check_link(&dom, base_url, &mut rootlinks, &opts);
 
+    println!("\n");
     loop {
         if rootlinks.inc() && crntdepth < opts.depth {
-            // println!("OK depth:{} = {}", crntdepth, rootlinks.curent_url());
+            println!("OK depth:{} = {}", crntdepth, rootlinks.curent_url());
             // let _ = create_rootnode(rootlinks.curent_url(), depth, crntdepth+1, samehost);
         } else {
             break;
@@ -180,7 +241,7 @@ fn create_rootnode(
     Ok(())
 }
 fn main() {
-    let url = "https://www.formula1.com";
-    let opts = options::dl_options::Options::new(2, true);
+    let url = "https://www.as-web.jp";
+    let opts = options::dl_options::Options::new(2, true, "./web_downloader_rust/".to_string());
     let _ = create_rootnode(url.to_string(), 0, &opts);
 }
