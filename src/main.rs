@@ -63,7 +63,7 @@ fn check_tag(
         check_script(base_url, attrs, &mut urllinks.js_links);
     }
 }
-#[allow(unused_variables)]
+#[allow(dead_code)]
 fn create_attribute(name: &str, value: &str) -> Attribute {
     Attribute {
         name: QualName::new(None, ns!(), LocalName::from(name)),
