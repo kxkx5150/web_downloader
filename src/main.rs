@@ -1,10 +1,9 @@
-#![cfg_attr(debug_assertions, allow(dead_code, unused_imports))]
 use html5ever::driver::ParseOpts;
 use html5ever::rcdom::{Handle, NodeData, RcDom};
 use html5ever::serialize;
 use html5ever::serialize::SerializeOpts;
 use html5ever::tendril::{StrTendril, TendrilSink};
-use html5ever::{local_name, namespace_url, ns};
+use html5ever::{namespace_url, ns};
 use html5ever::{parse_document, Attribute, LocalName, QualName};
 use std::cell::RefCell;
 use std::fs;
@@ -64,6 +63,7 @@ fn check_tag(
         check_script(base_url, attrs, &mut urllinks.js_links);
     }
 }
+#[allow(unused_variables)]
 fn create_attribute(name: &str, value: &str) -> Attribute {
     Attribute {
         name: QualName::new(None, ns!(), LocalName::from(name)),
@@ -89,7 +89,7 @@ fn check_img(base_url: &Url, attrs: &RefCell<Vec<Attribute>>, linkurls: &mut Vec
     if fpath != "" {
         // attrs.borrow_mut().push(create_attribute(
         //     "src",
-        //     "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        //     "___local_path____",
         // ));
         // println!("edit");
     }
@@ -159,8 +159,8 @@ fn check_link(
     let mut urllinks = node::element::Urllist::new();
     walk(&base_url, 0, &dom.document, &mut urllinks);
 
-    // let mut bytes = vec![];
-    // serialize(&mut bytes, &dom.document, SerializeOpts::default()).unwrap();
+    let mut bytes = vec![];
+    serialize(&mut bytes, &dom.document, SerializeOpts::default()).unwrap();
     // println!("{}", String::from_utf8(bytes).unwrap());
 
     urllinks.a_links.sort();
