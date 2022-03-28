@@ -7,6 +7,7 @@ use html5ever::{namespace_url, ns};
 use html5ever::{parse_document, Attribute, LocalName, QualName};
 use std::cell::RefCell;
 use std::fs;
+use std::io::Write;
 use std::path::Path;
 use url::{ParseError as UrlParseError, Position, Url};
 mod node;
@@ -159,9 +160,7 @@ fn check_link(
     let mut urllinks = node::element::Urllist::new();
     walk(&base_url, 0, &dom.document, &mut urllinks);
 
-    let mut bytes = vec![];
-    serialize(&mut bytes, &dom.document, SerializeOpts::default()).unwrap();
-    // println!("{}", String::from_utf8(bytes).unwrap());
+    download_page(dom, &base_url, opts);
 
     urllinks.a_links.sort();
     urllinks.a_links.dedup();
@@ -177,6 +176,23 @@ fn check_link(
     {
         iter_download_list(&mut urllinks.js_links, &opts);
     }
+}
+fn download_page(dom: &RcDom, base_url: &Url, opts: &options::dl_options::Options) {
+    let mut htmlpath: String = base_url.to_string();
+    if htmlpath.ends_with("/") {
+        htmlpath = base_url.join("index.html").unwrap().to_string();
+    }
+    let (fullpath, dirpath) = create_download_path(&htmlpath, opts);
+
+    println!("{}", base_url.to_string());
+    println!("{}", fullpath.to_string());
+    println!("{}", dirpath.to_string());
+
+    let _ = fs::create_dir_all(dirpath);
+    let mut bytes = vec![];
+    serialize(&mut bytes, &dom.document, SerializeOpts::default()).unwrap();
+    let mut file = std::fs::File::create(fullpath).unwrap();
+    let _ = file.write_all(&bytes);
 }
 fn iter_download_list(linklist: &mut Vec<String>, opts: &options::dl_options::Options) {
     linklist.sort();
@@ -241,7 +257,7 @@ fn create_rootnode(
     Ok(())
 }
 fn main() {
-    let url = "https://www.as-web.jp";
+    let url = "https://www.as-web.jp/f1";
     let opts = options::dl_options::Options::new(2, true, "./web_downloader_rust/".to_string());
     let _ = create_rootnode(url.to_string(), 0, &opts);
 }
