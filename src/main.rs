@@ -3,6 +3,7 @@ use html5ever::rcdom::{Handle, NodeData, RcDom};
 use html5ever::serialize;
 use html5ever::serialize::SerializeOpts;
 use html5ever::tendril::{StrTendril, TendrilSink};
+use html5ever::tokenizer::Token::ParseError;
 use html5ever::{namespace_url, ns};
 use html5ever::{parse_document, Attribute, LocalName, QualName};
 use std::cell::RefCell;
@@ -84,7 +85,12 @@ fn convert_url_to_localpath(
     name: String,
     opts: &options::dl_options::Options,
 ) {
+    // println!("{}", fpath);
+
     // let (fullpath, dirpath) = create_download_path(fpath, opts);
+    // if fullpath == "" {
+    //     return;
+    // }
     // let homeurl = base_url.scheme().to_string() + "://" +  base_url.host_str().unwrap();
     // let mut localpath: String = "".to_string();
 
@@ -110,6 +116,17 @@ fn convert_url_to_localpath(
     // println!("edit");
 }
 #[allow(dead_code)]
+fn print_element_attrs(attrs: &RefCell<Vec<Attribute>>) {
+    println!("\n---");
+    for attr in attrs.borrow().iter() {
+        let Attribute {
+            ref name,
+            ref value,
+        } = *attr;
+        println!("{},{}", &*name.local, value.to_string());
+    }
+}
+#[allow(dead_code)]
 fn create_attribute(name: &str, value: &str) -> Attribute {
     Attribute {
         name: QualName::new(None, ns!(), LocalName::from(name)),
@@ -122,6 +139,7 @@ fn check_a(base_url: &Url, attrs: &RefCell<Vec<Attribute>>, linkurls: &mut Vec<S
             return create_full_url(base_url, &attr.value.to_string(), linkurls).to_string();
         }
     }
+    // print_element_attrs(attrs);
     return "".to_string();
 }
 fn check_img(
@@ -134,6 +152,7 @@ fn check_img(
             return create_full_url(base_url, &attr.value.to_string(), linkurls).to_string();
         }
     }
+    // print_element_attrs(attrs);
     return "".to_string();
 }
 fn check_css(
@@ -208,7 +227,7 @@ fn check_link(
     let mut urllinks = node::element::Urllist::new();
     walk(&base_url, 0, &dom.document, &mut urllinks, opts);
 
-    download_page(dom, &base_url, opts);
+    // download_page(dom, &base_url, opts);
 
     urllinks.a_links.sort();
     urllinks.a_links.dedup();
@@ -247,7 +266,7 @@ fn iter_download_list(linklist: &mut Vec<String>, opts: &options::dl_options::Op
     linklist.sort();
     linklist.dedup();
     linklist.iter().for_each(|x| {
-        download_file(&x, opts);
+        // download_file(&x, opts);
     });
 }
 
@@ -265,19 +284,27 @@ fn download_file(url: &String, opts: &options::dl_options::Options) {
         .unwrap();
 }
 fn create_download_path(url: &String, opts: &options::dl_options::Options) -> (String, String) {
-    let urlobj = Url::parse(&url).unwrap();
-    let host = urlobj.host_str().unwrap();
-    let urlpath = &urlobj[Position::BeforePath..];
-    let filepath = host.to_string() + urlpath;
-    let path = Path::new(&filepath);
+    match Url::parse(url) {
+        Ok(urlobj) => {
+            println!("{}", url);
+            let host = urlobj.host_str().unwrap();
+            let urlpath = &urlobj[Position::BeforePath..];
+            let filepath = host.to_string() + urlpath;
+            let path = Path::new(&filepath);
 
-    let basepath = &opts.dlfolder;
-    let parent = path.parent().unwrap().to_str().unwrap();
-    let filename = &urlobj.path();
-    let fullpath = basepath.to_string() + host + filename;
-    let dirpath = basepath.to_string() + parent + "/";
+            let basepath = &opts.dlfolder;
+            let parent = path.parent().unwrap().to_str().unwrap();
+            let filename = &urlobj.path();
+            let fullpath = basepath.to_string() + host + filename;
+            let dirpath = basepath.to_string() + parent + "/";
 
-    return (fullpath.to_string(), dirpath.to_string());
+            return (fullpath.to_string(), dirpath.to_string());
+        }
+        Err(e) => {
+            println!("---  Error : {} : {} ---", e, url);
+            return ("".to_string(), "".to_string());
+        }
+    }
 }
 fn create_rootnode(
     url: String,
@@ -298,7 +325,7 @@ fn create_rootnode(
     println!("\n");
     loop {
         if rootlinks.inc() && crntdepth < opts.depth {
-            println!("OK depth:{} = {}", crntdepth, rootlinks.curent_url());
+            // println!("OK depth:{} = {}", crntdepth, rootlinks.curent_url());
             // let _ = create_rootnode(rootlinks.curent_url(), depth, crntdepth+1, samehost);
         } else {
             break;
