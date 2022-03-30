@@ -1,3 +1,5 @@
+#![allow(warnings, unused, dead_code)]
+
 use html5ever::driver::ParseOpts;
 use html5ever::rcdom::{Handle, NodeData, RcDom};
 use html5ever::serialize;
@@ -10,13 +12,13 @@ use std::cell::RefCell;
 use std::fs;
 use std::io::Write;
 use std::path::Path;
+use std::thread::current;
 use url::{ParseError as UrlParseError, Position, Url};
 mod node;
 mod options;
 pub use crate::node::element;
 pub use crate::options::dl_options;
 
-#[allow(unused_variables)]
 fn walk(
     base_url: &Url,
     indent: usize,
@@ -55,7 +57,6 @@ fn walk(
         walk(base_url, indent + 4, child, urllinks, opts);
     }
 }
-#[allow(unused_variables)]
 fn check_tag(
     base_url: &Url,
     nodestr: String,
@@ -65,19 +66,18 @@ fn check_tag(
 ) {
     if nodestr == "a" {
         let dlpath = check_a(base_url, attrs, &mut urllinks.a_links);
-        // convert_url_to_localpath(base_url, attrs, &dlpath, "href".to_string(), opts);
+        convert_url_to_localpath(base_url, attrs, &dlpath, "href".to_string(), opts);
     } else if nodestr == "img" {
         let dlpath = check_img(base_url, attrs, &mut urllinks.img_links);
         convert_url_to_localpath(base_url, attrs, &dlpath, "src".to_string(), opts);
     } else if nodestr == "link" {
         let dlpath = check_css(base_url, attrs, &mut urllinks.css_links);
-        // convert_url_to_localpath(base_url, attrs, &dlpath, "href".to_string(), opts);
+        convert_url_to_localpath(base_url, attrs, &dlpath, "href".to_string(), opts);
     } else if nodestr == "script" {
         let dlpath = check_script(base_url, attrs, &mut urllinks.js_links);
-        // convert_url_to_localpath(base_url, attrs, &dlpath, "src".to_string(), opts);
+        convert_url_to_localpath(base_url, attrs, &dlpath, "src".to_string(), opts);
     }
 }
-#[allow(unused_variables)]
 fn convert_url_to_localpath(
     base_url: &Url,
     attrs: &RefCell<Vec<Attribute>>,
@@ -85,37 +85,42 @@ fn convert_url_to_localpath(
     name: String,
     opts: &options::dl_options::Options,
 ) {
-    // println!("{}", fpath);
+    if fpath == "" {
+        return;
+    }
+    let (fullpath, dirpath) = create_download_path(fpath, opts);
+    let homeurl = base_url.scheme().to_string() + "://" + base_url.host_str().unwrap();
+    let mut localpath: String;
 
-    // let (fullpath, dirpath) = create_download_path(fpath, opts);
-    // if fullpath == "" {
-    //     return;
-    // }
-    // let homeurl = base_url.scheme().to_string() + "://" +  base_url.host_str().unwrap();
-    // let mut localpath: String = "".to_string();
+    if fpath.starts_with(&homeurl) {
+        let aaaa = opts.dlfolder.to_string() + base_url.host_str().unwrap();
+        localpath = fullpath.replace(&aaaa.to_string(), ".");
+    } else {
+        localpath = fullpath.replace(&opts.dlfolder.to_string(), "../");
+    }
 
-    // if fpath.starts_with(&homeurl){
-    //     let aaaa = opts.dlfolder.to_string() + base_url.host_str().unwrap();
-    //     localpath = fullpath.replace(&aaaa.to_string(), ".");
-    // }else {
-    //     localpath = fullpath.replace(&opts.dlfolder.to_string(), "../");
-    // }
+    if localpath.ends_with("/") {
+        localpath = localpath + "index.html";
+    }
+    println!("\n--- edit ---\n{}", homeurl);
+    println!("{}", fpath.to_string());
+    println!("{}", fullpath.to_string());
+    println!("{}", &localpath);
 
-    // if localpath.ends_with("/") {
-    //     localpath = localpath + "index.html";
-    // }
-    // println!("\n{}",homeurl );
-    // println!("{}", fpath.to_string());
-    // println!("{}", fullpath.to_string());
-    // println!("{}", &localpath);
-
-    // attrs.borrow_mut().push(create_attribute(
-    //     &name,
-    //     &localpath,
-    // ));
-    // println!("edit");
+    // attrs.borrow_mut().push(create_attribute(attrs, &name, &localpath));
+    // create_attribute(attrs, &name, &localpath);
 }
-#[allow(dead_code)]
+fn create_attribute(attrs: &RefCell<Vec<Attribute>>, name: &String, value: &String) -> Attribute{
+    // for attr in attrs.borrow_mut().iter_mut() {
+    //     if attr.name.local.to_string() == name.to_string() {           
+    //         // attr.value.push_tendril(&StrTendril::from(value.to_string()));
+    //     }
+    // }
+    Attribute {
+        name: QualName::new(None, ns!(), LocalName::from(name.to_string())),
+        value: StrTendril::from(value.to_string()),
+    }
+}
 fn print_element_attrs(attrs: &RefCell<Vec<Attribute>>) {
     println!("\n---");
     for attr in attrs.borrow().iter() {
@@ -124,13 +129,6 @@ fn print_element_attrs(attrs: &RefCell<Vec<Attribute>>) {
             ref value,
         } = *attr;
         println!("{},{}", &*name.local, value.to_string());
-    }
-}
-#[allow(dead_code)]
-fn create_attribute(name: &str, value: &str) -> Attribute {
-    Attribute {
-        name: QualName::new(None, ns!(), LocalName::from(name)),
-        value: StrTendril::from(value),
     }
 }
 fn check_a(base_url: &Url, attrs: &RefCell<Vec<Attribute>>, linkurls: &mut Vec<String>) -> String {
@@ -227,7 +225,7 @@ fn check_link(
     let mut urllinks = node::element::Urllist::new();
     walk(&base_url, 0, &dom.document, &mut urllinks, opts);
 
-    // download_page(dom, &base_url, opts);
+    download_page(dom, &base_url, opts);
 
     urllinks.a_links.sort();
     urllinks.a_links.dedup();
@@ -244,7 +242,6 @@ fn check_link(
         iter_download_list(&mut urllinks.js_links, &opts);
     }
 }
-#[allow(dead_code)]
 fn download_page(dom: &RcDom, base_url: &Url, opts: &options::dl_options::Options) {
     let mut htmlpath: String = base_url.to_string();
     if htmlpath.ends_with("/") {
@@ -266,13 +263,12 @@ fn iter_download_list(linklist: &mut Vec<String>, opts: &options::dl_options::Op
     linklist.sort();
     linklist.dedup();
     linklist.iter().for_each(|x| {
-        // download_file(&x, opts);
+        download_file(&x, opts);
     });
 }
-
-#[allow(unused_variables)]
 fn download_file(url: &String, opts: &options::dl_options::Options) {
     let (fullpath, dirpath) = create_download_path(url, opts);
+
     println!("\n{}", &dirpath);
     println!("{}", &fullpath);
 
@@ -286,7 +282,6 @@ fn download_file(url: &String, opts: &options::dl_options::Options) {
 fn create_download_path(url: &String, opts: &options::dl_options::Options) -> (String, String) {
     match Url::parse(url) {
         Ok(urlobj) => {
-            println!("{}", url);
             let host = urlobj.host_str().unwrap();
             let urlpath = &urlobj[Position::BeforePath..];
             let filepath = host.to_string() + urlpath;
@@ -325,7 +320,7 @@ fn create_rootnode(
     println!("\n");
     loop {
         if rootlinks.inc() && crntdepth < opts.depth {
-            // println!("OK depth:{} = {}", crntdepth, rootlinks.curent_url());
+            println!("OK depth:{} = {}", crntdepth, rootlinks.curent_url());
             // let _ = create_rootnode(rootlinks.curent_url(), depth, crntdepth+1, samehost);
         } else {
             break;
